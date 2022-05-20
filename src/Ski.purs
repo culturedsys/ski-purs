@@ -3,6 +3,10 @@ module Ski
   , evaluate
   , evaluateFully
   , parse
+  , parseE
+  , toGraph
+  , NodeDatum(..)
+  , toTree
   )
   where
 
@@ -67,10 +71,49 @@ parseImpl s stack t = case S.uncons s of
         Nothing -> Left "Unexpected ')'"
         Just { head: top, tail: stack' } -> parseImpl tail stack' (push top t)
     else if c >= (S.codePointFromChar 'a') && c <= (S.codePointFromChar 'z') then
-      parseImpl tail stack (push t (Just (Symbol c)))
+      parseImpl tail stack (push t (Just (Placeholder c)))
     else 
       Left $ "Unexpected '" <> (S.fromCodePointArray [c]) <> "'"
     
+
+type PrintResult = { s :: String, id :: String, counter :: Int }
+toGraph :: Term -> String
+toGraph t = let {s, id: _, counter: _ } = toGraphImpl t 0 in s
+
+nodeDef :: String -> String -> String -> Int -> PrintResult
+nodeDef tag label shape counter =
+  let id = tag <> (show $ counter + 1)
+      s = id <> " [label=" <> label <> " shape=" <> shape <> "]" in
+      { s, id, counter: counter + 1 }
+
+toGraphImpl :: Term -> Int -> PrintResult
+toGraphImpl (Placeholder c) counter = nodeDef "s" (S.fromCodePointArray [c]) "square" counter
+toGraphImpl S counter = nodeDef "c" "S" "ellipse" counter
+toGraphImpl K counter = nodeDef "c" "K" "ellipse" counter
+toGraphImpl I counter = nodeDef "c" "I" "ellipse" counter
+toGraphImpl (Cat l r) counter =
+  let { s: sL, id: idL, counter: counterL } = toGraphImpl l counter
+      { s: sR, id: idR, counter: counterR } = toGraphImpl r counterL
+      id = "n" <> (show $ counterR + 1)
+      s = id <> " [shape=point]\n" <> id <> " -- {" <> idL <> "," <> idR <> "}" in
+    {s: sL <> "\n" <> sR <> "\n" <> s, id, counter: counterR + 1 }
+
+
+newtype NodeDatum = NodeDatum {
+  name :: String,
+  children :: Array NodeDatum
+}
+
+derive instance eqNodeDatum :: Eq NodeDatum
+instance Show NodeDatum where 
+  show (NodeDatum { name, children }) = "{ " <> "name: \"" <> name <> "\", children: " <> (show children) <> " }"
+
+toTree :: Term -> NodeDatum
+toTree (Placeholder c) = NodeDatum { name: S.fromCodePointArray [c], children: [] }
+toTree S = NodeDatum { name: "S", children: [] }
+toTree K = NodeDatum { name: "K", children: [] }
+toTree I = NodeDatum { name: "I", children: [] }
+toTree (Cat l r) = NodeDatum { name: "", children: [(toTree l), (toTree r)] }
 
 -- SKI S(KI)
 

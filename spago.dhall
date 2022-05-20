@@ -13,11 +13,13 @@ to generate this file without the comments in this block.
 { name = "my-project"
 , dependencies =
   [ "aff"
+  , "console"
   , "effect"
   , "either"
   , "exceptions"
   , "lists"
   , "maybe"
+  , "node-readline"
   , "prelude"
   , "spec"
   , "strings"
